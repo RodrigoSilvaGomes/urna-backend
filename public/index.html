@@ -1,0 +1,1223 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simulador de Urna Eletrônica — Paraíba 2026</title>
+
+    <style>
+      /* =========================================================
+         RESET E ESTRUTURA GERAL
+      ========================================================= */
+      * {
+        box-sizing: border-box;
+        user-select: none;
+      }
+
+      body {
+        margin: 0;
+        padding: 40px 20px;
+        min-height: 100vh;
+        background: radial-gradient(
+          circle at 50% 20%,
+          #777 0,
+          #444 35%,
+          #222 100%
+        );
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        font-family: Arial, Helvetica, sans-serif;
+        color: #111;
+      }
+
+      /* =========================================================
+         GABINETE DA URNA
+      ========================================================= */
+      .machine {
+        width: min(1100px, 96vw);
+        background: linear-gradient(145deg, #f4f4f4, #cfcfcf);
+        border: 8px solid #bdbdbd;
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow:
+          0 25px 60px rgba(0, 0, 0, 0.55),
+          inset 0 2px 3px white;
+      }
+
+      .machine-title {
+        text-align: center;
+        color: #555;
+        font-weight: bold;
+        margin-bottom: 20px;
+        letter-spacing: 2px;
+        font-size: 14px;
+      }
+
+      .machine-body {
+        display: grid;
+        grid-template-columns: 1fr 390px;
+        gap: 30px;
+      }
+
+      /* =========================================================
+         TELA DA URNA
+      ========================================================= */
+      .screen-frame {
+        background: #151515;
+        padding: 20px;
+        border-radius: 5px;
+        box-shadow: inset 0 0 0 4px #303030;
+      }
+
+      .screen {
+        min-height: 520px;
+        background: radial-gradient(
+          circle at center,
+          #fff 0%,
+          #f7f7f7 65%,
+          #e6e6e6 100%
+        );
+        border: 3px solid #bbb;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .screen::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: repeating-linear-gradient(
+          0deg,
+          rgba(0, 0, 0, 0.015),
+          rgba(0, 0, 0, 0.015) 1px,
+          transparent 1px,
+          transparent 4px
+        );
+      }
+
+      .screen-content {
+        position: relative;
+        z-index: 2;
+        padding: 30px;
+        flex: 1;
+        transition: opacity 0.15s ease;
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        border-bottom: 2px solid #222;
+        padding-bottom: 10px;
+        margin-bottom: 25px;
+      }
+
+      .header strong {
+        font-size: 20px;
+      }
+
+      .uf {
+        font-weight: bold;
+        font-size: 18px;
+      }
+
+      .office {
+        font-size: 25px;
+        font-weight: bold;
+        margin-bottom: 30px;
+      }
+
+      .instruction {
+        font-size: 17px;
+        margin-bottom: 15px;
+      }
+
+      /* NÚMEROS DA DIGITAÇÃO */
+      .number-area {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 20px 0;
+      }
+
+      .digit {
+        width: 42px;
+        height: 58px;
+        border: 2px solid #111;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 38px;
+        font-weight: bold;
+        background: white;
+      }
+
+      /* ÁREA DO CANDIDATO */
+      .candidate-info {
+        display: none;
+        margin-top: 25px;
+        border-top: 1px solid #555;
+        padding-top: 20px;
+        min-height: 180px;
+      }
+
+      .candidate-info.visible {
+        display: block;
+      }
+
+      .candidate-photo {
+        float: right;
+        width: 120px;
+        height: 150px;
+        border: 2px solid #333;
+        background: linear-gradient(135deg, #ddd, #999);
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 20px;
+        margin-bottom: 10px;
+        font-size: 50px;
+        font-weight: bold;
+        color: #555;
+      }
+
+      .candidate-photo img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .candidate-name {
+        font-size: 29px;
+        font-weight: bold;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+        line-height: 1.15;
+      }
+
+      .candidate-party {
+        font-size: 18px;
+        margin-top: 8px;
+      }
+
+      .message {
+        margin-top: 30px;
+        font-size: 19px;
+        font-weight: bold;
+      }
+
+      .invalid {
+        color: #a40000;
+        font-weight: bold;
+      }
+
+      /* TELA FINAL "FIM" */
+      .end-screen {
+        display: none;
+        height: 100%;
+        min-height: 450px;
+        align-items: center;
+        justify-content: center;
+        font-size: 70px;
+        font-weight: bold;
+      }
+
+      .end-screen.show {
+        display: flex;
+      }
+
+      /* =========================================================
+         TECLADO DA URNA
+      ========================================================= */
+      .keyboard-panel {
+        background: #202020;
+        border-radius: 4px;
+        padding: 24px;
+        box-shadow:
+          inset 0 0 0 3px #333,
+          0 5px 10px rgba(0, 0, 0, 0.4);
+      }
+
+      .logo {
+        color: white;
+        text-align: center;
+        margin-bottom: 20px;
+        font-weight: bold;
+        letter-spacing: 2px;
+      }
+
+      .numeric {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 13px;
+      }
+
+      .key {
+        height: 65px;
+        border: 0;
+        border-radius: 4px;
+        background: linear-gradient(#252525, #101010);
+        color: white;
+        font-size: 25px;
+        font-weight: bold;
+        box-shadow:
+          0 4px 0 #050505,
+          inset 0 1px 1px #555;
+        cursor: pointer;
+      }
+
+      .key:hover {
+        background: linear-gradient(#383838, #151515);
+      }
+
+      .key:active {
+        transform: translateY(3px);
+        box-shadow: 0 1px 0 #050505;
+      }
+
+      .zero {
+        grid-column: 2;
+      }
+
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1.25fr;
+        gap: 10px;
+        margin-top: 30px;
+      }
+
+      .action {
+        height: 65px;
+        border: 0;
+        border-radius: 4px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 4px 0 rgba(0, 0, 0, 0.4);
+      }
+
+      .white {
+        background: #f5f5f5;
+        color: #222;
+      }
+
+      .correct {
+        background: #e76d38;
+        color: #111;
+      }
+
+      .confirm {
+        background: #16a34a;
+        color: white;
+      }
+
+      .action:active {
+        transform: translateY(3px);
+        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+      }
+
+      .status {
+        color: #ddd;
+        text-align: center;
+        margin-top: 20px;
+        font-size: 12px;
+      }
+
+      .help {
+        margin-top: 15px;
+        background: #eee;
+        padding: 12px;
+        font-size: 13px;
+        border-radius: 4px;
+        line-height: 1.5;
+      }
+
+      /* =========================================================
+         BOTÃO DE ENCERRAR VOTAÇÃO (ABAIXO DA URNA)
+      ========================================================= */
+      .admin-panel {
+        margin-top: 120px;
+        margin-bottom: 60px;
+        text-align: center;
+      }
+
+      .btn-finish-election {
+        background-color: #b91c1c;
+        color: #ffffff;
+        font-size: 18px;
+        font-weight: bold;
+        padding: 18px 36px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.5);
+        transition:
+          background-color 0.2s,
+          transform 0.1s;
+      }
+
+      .btn-finish-election:hover {
+        background-color: #991b1b;
+      }
+
+      .btn-finish-election:active {
+        transform: scale(0.98);
+      }
+
+      /* =========================================================
+         TELA DE APURAÇÃO DOS RESULTADOS (SIMPLIFICADA)
+      ========================================================= */
+      .results-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background-color: rgba(0, 0, 0, 0.88);
+        z-index: 1000;
+        overflow-y: auto;
+        padding: 40px 20px;
+      }
+
+      .results-overlay.active {
+        display: flex;
+        justify-content: center;
+      }
+
+      .results-container {
+        background: #ffffff;
+        width: min(800px, 95vw);
+        border-radius: 12px;
+        padding: 35px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        margin: auto;
+      }
+
+      .results-title {
+        text-align: center;
+        font-size: 28px;
+        color: #1e293b;
+        margin-top: 0;
+        margin-bottom: 10px;
+        border-bottom: 3px solid #16a34a;
+        padding-bottom: 15px;
+      }
+
+      .results-subtitle {
+        text-align: center;
+        color: #64748b;
+        font-size: 15px;
+        margin-bottom: 30px;
+      }
+
+      .office-result-block {
+        margin-bottom: 35px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      .office-result-header {
+        background: #0f172a;
+        color: #ffffff;
+        padding: 12px 20px;
+        font-size: 20px;
+        font-weight: bold;
+        text-align: center;
+      }
+
+      /* LISTA DE CARDS DE CANDIDATOS NA APURAÇÃO */
+      .candidates-result-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 16px;
+        background-color: #f8fafc;
+      }
+
+      .candidate-result-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 12px 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+      }
+
+      .candidate-card-left {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+      }
+
+      .result-photo {
+        width: 70px;
+        height: 90px;
+        border: 2px solid #334155;
+        border-radius: 4px;
+        background: #e2e8f0;
+        object-fit: cover;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        font-weight: bold;
+        color: #475569;
+        overflow: hidden;
+      }
+
+      .result-photo img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .result-candidate-name {
+        font-size: 22px;
+        font-weight: bold;
+        color: #0f172a;
+        text-transform: uppercase;
+      }
+
+      .result-votes-badge {
+        font-size: 20px;
+        font-weight: bold;
+        color: #16a34a;
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        padding: 8px 16px;
+        border-radius: 6px;
+      }
+
+      .results-actions {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        margin-top: 30px;
+      }
+
+      .btn-results-close {
+        background: #475569;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 6px;
+        font-size: 16px;
+        cursor: pointer;
+        font-weight: bold;
+      }
+
+      .btn-results-reset {
+        background: #2563eb;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 6px;
+        font-size: 16px;
+        cursor: pointer;
+        font-weight: bold;
+      }
+
+      /* RESPONSIVO */
+      @media (max-width: 850px) {
+        .machine-body {
+          grid-template-columns: 1fr;
+        }
+        .machine {
+          padding: 15px;
+        }
+        .screen {
+          min-height: 450px;
+        }
+        .keyboard-panel {
+          max-width: 500px;
+          width: 100%;
+          margin: auto;
+        }
+      }
+
+      @media (max-width: 500px) {
+        .digit {
+          width: 32px;
+          height: 48px;
+          font-size: 28px;
+        }
+        .candidate-name {
+          font-size: 22px;
+        }
+        .candidate-photo {
+          width: 90px;
+          height: 115px;
+        }
+        .screen-content {
+          padding: 18px;
+        }
+        .key {
+          height: 55px;
+        }
+        .result-candidate-name {
+          font-size: 18px;
+        }
+        .result-photo {
+          width: 50px;
+          height: 65px;
+        }
+        .result-votes-badge {
+          font-size: 16px;
+          padding: 6px 10px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- URNA ELETRÔNICA -->
+    <div class="machine">
+      <div class="machine-title">
+        JUSTIÇA ELEITORAL — SIMULADOR DIDÁTICO — PARAÍBA 2026
+      </div>
+
+      <div class="machine-body">
+        <!-- TELA -->
+        <div class="screen-frame">
+          <div class="screen">
+            <div class="screen-content" id="screenContent">
+              <div class="header">
+                <strong>JUSTIÇA ELEITORAL</strong>
+                <span class="uf">PB</span>
+              </div>
+
+              <div class="office" id="office">DEPUTADO FEDERAL</div>
+
+              <div class="instruction">Digite o número do candidato:</div>
+
+              <div class="number-area" id="numberArea"></div>
+
+              <!-- CANDIDATO -->
+              <div class="candidate-info" id="candidateInfo">
+                <div class="candidate-photo" id="candidatePhoto">?</div>
+                <div class="candidate-name" id="candidateName"></div>
+                <div class="candidate-party" id="candidateParty"></div>
+                <div class="message" id="candidateMessage"></div>
+              </div>
+
+              <div class="message" id="message"></div>
+            </div>
+
+            <!-- FIM -->
+            <div class="end-screen" id="endScreen">FIM</div>
+          </div>
+        </div>
+
+        <!-- TECLADO -->
+        <div class="keyboard-panel">
+          <div class="logo">URNA ELETRÔNICA</div>
+
+          <div class="numeric">
+            <button class="key" onclick="press('1')">1</button>
+            <button class="key" onclick="press('2')">2</button>
+            <button class="key" onclick="press('3')">3</button>
+            <button class="key" onclick="press('4')">4</button>
+            <button class="key" onclick="press('5')">5</button>
+            <button class="key" onclick="press('6')">6</button>
+            <button class="key" onclick="press('7')">7</button>
+            <button class="key" onclick="press('8')">8</button>
+            <button class="key" onclick="press('9')">9</button>
+            <button class="key zero" onclick="press('0')">0</button>
+          </div>
+
+          <div class="actions">
+            <button class="action white" onclick="whiteVote()">BRANCO</button>
+            <button class="action correct" onclick="correct()">CORRIGE</button>
+            <button class="action confirm" onclick="confirmVote()">
+              CONFIRMA
+            </button>
+          </div>
+
+          <div class="status">SIMULAÇÃO — SEM VALIDADE ELEITORAL</div>
+
+          <div class="help">
+            <strong>Teclado:</strong> também é possível usar os números do
+            teclado do computador.<br /><br />
+            <strong>Enter:</strong> confirma<br />
+            <strong>Backspace:</strong> corrige
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTÃO DE ENCERRAR VOTAÇÃO (ABAIXO DA URNA) -->
+    <div class="admin-panel">
+      <button
+        class="btn-finish-election"
+        onclick="finishElectionAndShowResults()"
+      >
+        📊 ENCERRAR VOTAÇÃO E EXIBIR APURAÇÃO
+      </button>
+    </div>
+
+    <!-- TELA DE APURAÇÃO DOS RESULTADOS (MODAL) -->
+    <div class="results-overlay" id="resultsOverlay">
+      <div class="results-container">
+        <h2 class="results-title">RELATÓRIO FINAL DA APURAÇÃO</h2>
+        <div class="results-subtitle" id="totalVotersSubtitle">
+          Total de eleitores que votaram: 0
+        </div>
+
+        <div id="resultsContent"></div>
+
+        <div class="results-actions">
+          <button class="btn-results-close" onclick="closeResults()">
+            Fechar Relatório
+          </button>
+          <button class="btn-results-reset" onclick="resetAllVotes()">
+            Iniciar Nova Eleição (Zerar Tudo)
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      /* =========================================================
+         ÁUDIOS (tok.mp3 e final.mp3 na mesma pasta)
+      ========================================================= */
+      const soundTok = new Audio("tok.mp3");
+      const soundFinal = new Audio("final.mp3");
+
+      function playTok() {
+        soundTok.currentTime = 0;
+        soundTok.play().catch(() => {});
+      }
+
+      function playFinal() {
+        soundFinal.currentTime = 0;
+        soundFinal.play().catch(() => {});
+      }
+
+      /* =========================================================
+         LISTA DE CARGOS (Ordem Oficial TSE)
+      ========================================================= */
+      const cargos = [
+        { nome: "DEPUTADO FEDERAL", digitos: 4, tipo: "deputadoFederal" },
+        { nome: "DEPUTADO ESTADUAL", digitos: 5, tipo: "deputadoEstadual" },
+        { nome: "SENADOR (1ª VAGA)", digitos: 3, tipo: "senador1" },
+        { nome: "SENADOR (2ª VAGA)", digitos: 3, tipo: "senador2" },
+        { nome: "GOVERNADOR E VICE", digitos: 2, tipo: "governador" },
+        {
+          nome: "PRESIDENTE DA REPÚBLICA E VICE",
+          digitos: 2,
+          tipo: "presidente",
+        },
+      ];
+
+      /* =========================================================
+         BASE DE CANDIDATOS (.PNG)
+      ========================================================= */
+      const candidatosBanco = {
+        deputadoFederal: {
+          8173: {
+            nome: "Elefante",
+            partido: "Partido dos Gigantes",
+            foto: "fotos/elefante.PNG",
+          },
+          9264: {
+            nome: "Lobo",
+            partido: "Partido da Floresta",
+            foto: "fotos/lobo.PNG",
+          },
+          7358: {
+            nome: "Tigre",
+            partido: "Partido dos Felinos",
+            foto: "fotos/tigre.PNG",
+          },
+          6849: {
+            nome: "Águia",
+            partido: "Partido das Aves",
+            foto: "fotos/aguia.PNG",
+          },
+        },
+        deputadoEstadual: {
+          58127: {
+            nome: "Girafa",
+            partido: "Partido dos Herbívoros",
+            foto: "fotos/girafa.PNG",
+          },
+          69438: {
+            nome: "Zebra",
+            partido: "Partido das Savanas",
+            foto: "fotos/zebra.PNG",
+          },
+          82751: {
+            nome: "Pantera Negra",
+            partido: "Partido dos Felinos",
+            foto: "fotos/pantera-negra.PNG",
+          },
+          93642: {
+            nome: "Hipopótamo",
+            partido: "Partido dos Rios",
+            foto: "fotos/hipopotamo.PNG",
+          },
+        },
+        senador: {
+          581: {
+            nome: "Coruja",
+            partido: "Partido das Aves",
+            foto: "fotos/coruja.PNG",
+          },
+          694: {
+            nome: "Falcão",
+            partido: "Partido das Aves",
+            foto: "fotos/falcao.PNG",
+          },
+          827: {
+            nome: "Pavão",
+            partido: "Partido das Cores",
+            foto: "fotos/pavao.PNG",
+          },
+          936: {
+            nome: "Rinoceronte",
+            partido: "Partido da Natureza",
+            foto: "fotos/rinoceronte.PNG",
+          },
+        },
+        governador: {
+          58: {
+            nome: "Raposa",
+            partido: "Partido da Esperteza",
+            foto: "fotos/raposa.PNG",
+          },
+          69: {
+            nome: "Macaco",
+            partido: "Partido das Árvores",
+            foto: "fotos/macaco.PNG",
+          },
+          82: {
+            nome: "Panda",
+            partido: "Partido do Bambu",
+            foto: "fotos/panda.PNG",
+          },
+          93: {
+            nome: "Onça-pintada",
+            partido: "Partido dos Felinos",
+            foto: "fotos/onca-pintada.PNG",
+          },
+        },
+        presidente: {
+          58: {
+            nome: "Leão",
+            partido: "Partido dos Felinos",
+            foto: "fotos/leao.PNG",
+          },
+          69: {
+            nome: "Urso",
+            partido: "Partido dos Ursídeos",
+            foto: "fotos/urso.PNG",
+          },
+        },
+      };
+
+      // Mapeamento dos tipos para o banco de dados
+      function getCandidatosCargo(tipoCargo) {
+        if (tipoCargo === "senador1" || tipoCargo === "senador2") {
+          return candidatosBanco.senador;
+        }
+        return candidatosBanco[tipoCargo];
+      }
+
+      /* =========================================================
+         ACUMULADOR GLOBAL DE VOTOS
+      ========================================================= */
+      let totalEleitores = 0;
+      let contagemVotos = {};
+
+      function resetContagemGlobal() {
+        totalEleitores = 0;
+        contagemVotos = {};
+        cargos.forEach((c) => {
+          contagemVotos[c.tipo] = {
+            brancos: 0,
+            nulos: 0,
+            candidatos: {},
+          };
+          const lista = getCandidatosCargo(c.tipo);
+          for (let num in lista) {
+            contagemVotos[c.tipo].candidatos[num] = 0;
+          }
+        });
+      }
+
+      resetContagemGlobal();
+
+      /* =========================================================
+         ESTADO DA URNA ATUAL
+      ========================================================= */
+      let cargoAtual = 0;
+      let numero = "";
+      let votosEleitorAtual = [];
+      let branco = false;
+      let estado = "digitando";
+
+      /* =========================================================
+         ELEMENTOS DO DOM
+      ========================================================= */
+      const office = document.getElementById("office");
+      const numberArea = document.getElementById("numberArea");
+      const candidateInfo = document.getElementById("candidateInfo");
+      const candidateName = document.getElementById("candidateName");
+      const candidateParty = document.getElementById("candidateParty");
+      const candidatePhoto = document.getElementById("candidatePhoto");
+      const candidateMessage = document.getElementById("candidateMessage");
+      const message = document.getElementById("message");
+      const screenContent = document.getElementById("screenContent");
+      const endScreen = document.getElementById("endScreen");
+
+      /* =========================================================
+         INICIALIZAÇÃO / REINÍCIO PARA NOVO ELEITOR
+      ========================================================= */
+      function init() {
+        cargoAtual = 0;
+        numero = "";
+        votosEleitorAtual = [];
+        branco = false;
+        estado = "digitando";
+        screenContent.style.display = "block";
+        endScreen.classList.remove("show");
+        render();
+      }
+
+      /* =========================================================
+         RENDERIZAR TELA DA URNA
+      ========================================================= */
+      function render() {
+        const cargo = cargos[cargoAtual];
+        office.textContent = cargo.nome;
+
+        /* Quadros numéricos */
+        numberArea.innerHTML = "";
+        for (let i = 0; i < cargo.digitos; i++) {
+          const digit = document.createElement("div");
+          digit.className = "digit";
+          digit.textContent = numero[i] || "";
+          numberArea.appendChild(digit);
+        }
+
+        candidateInfo.classList.remove("visible");
+        message.textContent = "";
+        message.className = "message";
+
+        /* Voto Branco */
+        if (branco) {
+          candidateInfo.classList.add("visible");
+          candidateName.textContent = "VOTO EM BRANCO";
+          candidateParty.textContent = "";
+          candidatePhoto.innerHTML = `<div style="font-size:22px; text-align:center;">BRANCO</div>`;
+          candidateMessage.textContent =
+            "Pressione CONFIRMA para registrar o voto em branco.";
+          return;
+        }
+
+        /* Número Completo */
+        if (numero.length === cargo.digitos) {
+          const lista = getCandidatosCargo(cargo.tipo);
+          const candidato = lista[numero];
+
+          if (candidato) {
+            candidateInfo.classList.add("visible");
+            candidateName.textContent = candidato.nome;
+            candidateParty.textContent = "PARTIDO: " + candidato.partido;
+            mostrarFoto(candidato);
+            candidateMessage.textContent =
+              "Confira seus dados e pressione CONFIRMA.";
+            message.textContent = "";
+            estado = "pronto";
+          } else {
+            candidateInfo.classList.add("visible");
+            candidateName.textContent = "NÚMERO NÃO CADASTRADO";
+            candidateParty.textContent = "";
+            candidatePhoto.innerHTML = `<div style="font-size:50px; font-weight:bold;">?</div>`;
+            candidateMessage.textContent = "VOTO NULO";
+            message.textContent =
+              "Confira o número ou pressione CONFIRMA para registrar voto nulo.";
+            message.className = "message invalid";
+            estado = "pronto";
+          }
+        } else {
+          estado = "digitando";
+        }
+      }
+
+      function mostrarFoto(candidato) {
+        candidatePhoto.innerHTML = "";
+        const img = document.createElement("img");
+        img.src = candidato.foto;
+        img.alt = candidato.nome;
+
+        img.onerror = function () {
+          candidatePhoto.innerHTML = "";
+          const inicial = candidato.nome.trim().charAt(0).toUpperCase();
+          candidatePhoto.textContent = inicial;
+        };
+
+        candidatePhoto.appendChild(img);
+      }
+
+      /* =========================================================
+         DIGITAÇÃO E AÇÕES DOS BOTÕES
+      ========================================================= */
+      function press(digit) {
+        if (estado === "fim") return;
+
+        const cargo = cargos[cargoAtual];
+        if (branco) return;
+        if (numero.length >= cargo.digitos) return;
+
+        numero += digit;
+        playTok();
+        render();
+      }
+
+      function whiteVote() {
+        if (estado === "fim") return;
+        numero = "";
+        branco = true;
+        estado = "pronto";
+        playTok();
+        render();
+      }
+
+      function correct() {
+        if (estado === "fim") return;
+        numero = "";
+        branco = false;
+        estado = "digitando";
+        playTok();
+        render();
+      }
+
+      function confirmVote() {
+        if (estado === "fim") return;
+
+        const cargo = cargos[cargoAtual];
+
+        if (!branco && numero.length < cargo.digitos) {
+          message.textContent = "Digite todos os números do candidato.";
+          message.className = "message invalid";
+          return;
+        }
+
+        let registro;
+        if (branco) {
+          registro = { cargoTipo: cargo.tipo, tipo: "BRANCO" };
+        } else {
+          const lista = getCandidatosCargo(cargo.tipo);
+          const candidato = lista[numero];
+          registro = {
+            cargoTipo: cargo.tipo,
+            tipo: candidato ? "VÁLIDO" : "NULO",
+            numero: numero,
+          };
+        }
+
+        votosEleitorAtual.push(registro);
+
+        playTok();
+        screenContent.style.opacity = "0.2";
+
+        setTimeout(function () {
+          screenContent.style.opacity = "1";
+          proximoCargo();
+        }, 150);
+      }
+
+      function proximoCargo() {
+        cargoAtual++;
+        if (cargoAtual >= cargos.length) {
+          finalizarVotacaoEleitor();
+          return;
+        }
+        numero = "";
+        branco = false;
+        estado = "digitando";
+        render();
+      }
+
+      /* =========================================================
+         FINALIZAR VOTAÇÃO DO ELEITOR CORRENTE
+      ========================================================= */
+      // 1. Enviar votos para o backend ao finalizar a votação do eleitor
+      async function finalizarVotacaoEleitor() {
+        estado = "fim";
+        screenContent.style.display = "none";
+        endScreen.classList.add("show");
+
+        playFinal();
+
+        try {
+          await fetch("/api/votar", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ votosEleitor: votosEleitorAtual }),
+          });
+        } catch (err) {
+          console.error("Erro ao enviar o voto para o servidor:", err);
+        }
+
+        setTimeout(function () {
+          init();
+        }, 3500);
+      }
+
+      // 2. Buscar a apuração atualizada do servidor e exibir no modal
+      async function finishElectionAndShowResults() {
+        const resultsOverlay = document.getElementById("resultsOverlay");
+        const resultsContent = document.getElementById("resultsContent");
+        const totalVotersSubtitle = document.getElementById(
+          "totalVotersSubtitle",
+        );
+
+        try {
+          const response = await fetch("/api/apuracao");
+          const dadosGlobais = await response.json();
+
+          totalVotersSubtitle.textContent = `Total global de eleitores que votaram: ${dadosGlobais.totalEleitores}`;
+          resultsContent.innerHTML = "";
+
+          const contagemServidor = dadosGlobais.votos;
+
+          let cargosApuracao = [
+            {
+              nome: "DEPUTADO FEDERAL",
+              tipos: ["deputadoFederal"],
+              fonte: candidatosBanco.deputadoFederal,
+            },
+            {
+              nome: "DEPUTADO ESTADUAL",
+              tipos: ["deputadoEstadual"],
+              fonte: candidatosBanco.deputadoEstadual,
+            },
+            {
+              nome: "SENADOR",
+              tipos: ["senador1", "senador2"],
+              fonte: candidatosBanco.senador,
+            },
+            {
+              nome: "GOVERNADOR E VICE",
+              tipos: ["governador"],
+              fonte: candidatosBanco.governador,
+            },
+            {
+              nome: "PRESIDENTE DA REPÚBLICA E VICE",
+              tipos: ["presidente"],
+              fonte: candidatosBanco.presidente,
+            },
+          ];
+
+          cargosApuracao.forEach((grupoCargo) => {
+            let totalVotosCand = {};
+
+            for (let num in grupoCargo.fonte) {
+              totalVotosCand[num] = 0;
+            }
+
+            grupoCargo.tipos.forEach((t) => {
+              if (contagemServidor[t] && contagemServidor[t].candidatos) {
+                for (let num in contagemServidor[t].candidatos) {
+                  totalVotosCand[num] =
+                    (totalVotosCand[num] || 0) +
+                    contagemServidor[t].candidatos[num];
+                }
+              }
+            });
+
+            let ranking = [];
+            for (let num in grupoCargo.fonte) {
+              ranking.push({
+                nome: grupoCargo.fonte[num].nome,
+                foto: grupoCargo.fonte[num].foto,
+                votos: totalVotosCand[num] || 0,
+              });
+            }
+
+            ranking.sort((a, b) => b.votos - a.votos);
+
+            let block = document.createElement("div");
+            block.className = "office-result-block";
+
+            let html = `<div class="office-result-header">${grupoCargo.nome}</div>`;
+            html += `<div class="candidates-result-list">`;
+
+            ranking.forEach((cand) => {
+              const inicial = cand.nome.trim().charAt(0).toUpperCase();
+              html += `
+          <div class="candidate-result-card">
+            <div class="candidate-card-left">
+              <div class="result-photo">
+                <img src="${cand.foto}" alt="${cand.nome}" onerror="this.onerror=null; this.parentElement.innerHTML='${inicial}';" />
+              </div>
+              <div class="result-candidate-name">${cand.nome}</div>
+            </div>
+            <div class="result-votes-badge">${cand.votos} voto(s)</div>
+          </div>
+        `;
+            });
+
+            html += `</div>`;
+            block.innerHTML = html;
+            resultsContent.appendChild(block);
+          });
+
+          resultsOverlay.classList.add("active");
+        } catch (err) {
+          alert("Erro ao buscar a apuração do servidor.");
+          console.error(err);
+        }
+      }
+
+      function closeResults() {
+        document.getElementById("resultsOverlay").classList.remove("active");
+      }
+
+      function resetAllVotes() {
+        if (
+          confirm(
+            "Tem certeza que deseja zerar a apuração e reiniciar a eleição?",
+          )
+        ) {
+          resetContagemGlobal();
+          closeResults();
+          init();
+        }
+      }
+
+      /* =========================================================
+         TECLADO FÍSICO DO COMPUTADOR
+      ========================================================= */
+      document.addEventListener("keydown", function (event) {
+        if (/^[0-9]$/.test(event.key)) {
+          press(event.key);
+          return;
+        }
+        if (event.key === "Enter") {
+          confirmVote();
+          return;
+        }
+        if (event.key === "Backspace") {
+          event.preventDefault();
+          correct();
+          return;
+        }
+      });
+
+      /* INICIALIZAR AO CARREGAR A PÁGINA */
+      document.addEventListener("DOMContentLoaded", function () {
+        init();
+      });
+    </script>
+  </body>
+</html>

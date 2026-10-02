@@ -1,0 +1,63 @@
+{
+  "totalEleitores": 1,
+  "votos": {
+    "deputadoFederal": {
+      "brancos": 0,
+      "nulos": 0,
+      "candidatos": {
+        "6849": 0,
+        "7358": 0,
+        "8173": 1,
+        "9264": 0
+      }
+    },
+    "deputadoEstadual": {
+      "brancos": 0,
+      "nulos": 0,
+      "candidatos": {
+        "58127": 1,
+        "69438": 0,
+        "82751": 0,
+        "93642": 0
+      }
+    },
+    "senador1": {
+      "brancos": 0,
+      "nulos": 0,
+      "candidatos": {
+        "581": 1,
+        "694": 0,
+        "827": 0,
+        "936": 0
+      }
+    },
+    "senador2": {
+      "brancos": 0,
+      "nulos": 0,
+      "candidatos": {
+        "581": 0,
+        "694": 1,
+        "827": 0,
+        "936": 0
+      }
+    },
+    "governador": {
+      "brancos": 0,
+      "nulos": 0,
+      "candidatos": {
+        "58": 1,
+        "69": 0,
+        "82": 0,
+        "93": 0
+      }
+    },
+    "presidente": {
+      "brancos": 0,
+      "nulos": 0,
+      "candidatos": {
+        "58": 1,
+        "69": 0
+      }
+    }
+  }
+}
