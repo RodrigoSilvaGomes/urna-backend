@@ -371,7 +371,7 @@
       }
 
       /* =========================================================
-         TELA DE APURAÇÃO DOS RESULTADOS (SIMPLIFICADA)
+         TELA DE APURAÇÃO DOS RESULTADOS (MODAL)
       ========================================================= */
       .results-overlay {
         display: none;
@@ -430,7 +430,6 @@
         text-align: center;
       }
 
-      /* LISTA DE CARDS DE CANDIDATOS NA APURAÇÃO */
       .candidates-result-list {
         display: flex;
         flex-direction: column;
@@ -462,7 +461,6 @@
         border: 2px solid #334155;
         border-radius: 4px;
         background: #e2e8f0;
-        object-fit: cover;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -504,17 +502,6 @@
 
       .btn-results-close {
         background: #475569;
-        color: white;
-        padding: 12px 24px;
-        border: none;
-        border-radius: 6px;
-        font-size: 16px;
-        cursor: pointer;
-        font-weight: bold;
-      }
-
-      .btn-results-reset {
-        background: #2563eb;
         color: white;
         padding: 12px 24px;
         border: none;
@@ -652,7 +639,7 @@
       </div>
     </div>
 
-    <!-- BOTÃO DE ENCERRAR VOTAÇÃO (ABAIXO DA URNA) -->
+    <!-- BOTÃO DE ENCERRAR VOTAÇÃO -->
     <div class="admin-panel">
       <button
         class="btn-finish-election"
@@ -676,16 +663,13 @@
           <button class="btn-results-close" onclick="closeResults()">
             Fechar Relatório
           </button>
-          <button class="btn-results-reset" onclick="resetAllVotes()">
-            Iniciar Nova Eleição (Zerar Tudo)
-          </button>
         </div>
       </div>
     </div>
 
     <script>
       /* =========================================================
-         ÁUDIOS (tok.mp3 e final.mp3 na mesma pasta)
+         ÁUDIOS (tok.mp3 e final.mp3)
       ========================================================= */
       const soundTok = new Audio("tok.mp3");
       const soundFinal = new Audio("final.mp3");
@@ -701,7 +685,7 @@
       }
 
       /* =========================================================
-         LISTA DE CARGOS (Ordem Oficial TSE)
+         LISTA DE CARGOS (Ordem Oficial)
       ========================================================= */
       const cargos = [
         { nome: "DEPUTADO FEDERAL", digitos: 4, tipo: "deputadoFederal" },
@@ -822,37 +806,12 @@
         },
       };
 
-      // Mapeamento dos tipos para o banco de dados
       function getCandidatosCargo(tipoCargo) {
         if (tipoCargo === "senador1" || tipoCargo === "senador2") {
           return candidatosBanco.senador;
         }
         return candidatosBanco[tipoCargo];
       }
-
-      /* =========================================================
-         ACUMULADOR GLOBAL DE VOTOS
-      ========================================================= */
-      let totalEleitores = 0;
-      let contagemVotos = {};
-
-      function resetContagemGlobal() {
-        totalEleitores = 0;
-        contagemVotos = {};
-        cargos.forEach((c) => {
-          contagemVotos[c.tipo] = {
-            brancos: 0,
-            nulos: 0,
-            candidatos: {},
-          };
-          const lista = getCandidatosCargo(c.tipo);
-          for (let num in lista) {
-            contagemVotos[c.tipo].candidatos[num] = 0;
-          }
-        });
-      }
-
-      resetContagemGlobal();
 
       /* =========================================================
          ESTADO DA URNA ATUAL
@@ -1048,9 +1007,9 @@
       }
 
       /* =========================================================
-         FINALIZAR VOTAÇÃO DO ELEITOR CORRENTE
+         INTEGRAÇÃO COM O BACKEND / FIRESTORE
       ========================================================= */
-      // 1. Enviar votos para o backend ao finalizar a votação do eleitor
+      // 1. Envia os votos para o servidor Firestore ao concluir
       async function finalizarVotacaoEleitor() {
         estado = "fim";
         screenContent.style.display = "none";
@@ -1073,7 +1032,7 @@
         }, 3500);
       }
 
-      // 2. Buscar a apuração atualizada do servidor e exibir no modal
+      // 2. Busca a contagem consolidada do Firestore e gera a tela de apuração
       async function finishElectionAndShowResults() {
         const resultsOverlay = document.getElementById("resultsOverlay");
         const resultsContent = document.getElementById("resultsContent");
@@ -1155,16 +1114,16 @@
             ranking.forEach((cand) => {
               const inicial = cand.nome.trim().charAt(0).toUpperCase();
               html += `
-          <div class="candidate-result-card">
-            <div class="candidate-card-left">
-              <div class="result-photo">
-                <img src="${cand.foto}" alt="${cand.nome}" onerror="this.onerror=null; this.parentElement.innerHTML='${inicial}';" />
-              </div>
-              <div class="result-candidate-name">${cand.nome}</div>
-            </div>
-            <div class="result-votes-badge">${cand.votos} voto(s)</div>
-          </div>
-        `;
+                <div class="candidate-result-card">
+                  <div class="candidate-card-left">
+                    <div class="result-photo">
+                      <img src="${cand.foto}" alt="${cand.nome}" onerror="this.onerror=null; this.parentElement.innerHTML='${inicial}';" />
+                    </div>
+                    <div class="result-candidate-name">${cand.nome}</div>
+                  </div>
+                  <div class="result-votes-badge">${cand.votos} voto(s)</div>
+                </div>
+              `;
             });
 
             html += `</div>`;
@@ -1181,18 +1140,6 @@
 
       function closeResults() {
         document.getElementById("resultsOverlay").classList.remove("active");
-      }
-
-      function resetAllVotes() {
-        if (
-          confirm(
-            "Tem certeza que deseja zerar a apuração e reiniciar a eleição?",
-          )
-        ) {
-          resetContagemGlobal();
-          closeResults();
-          init();
-        }
       }
 
       /* =========================================================

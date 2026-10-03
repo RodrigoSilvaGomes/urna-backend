@@ -7,16 +7,32 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ======================================
-// FIREBASE
+// CONFIGURAÇÃO DO FIREBASE ADMIN
 // ======================================
 
-if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
-  throw new Error("Credencial do Firebase não configurada.");
+let serviceAccount;
+
+try {
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    // Ambiente de Produção (Render)
+    const rawAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
+    serviceAccount =
+      typeof rawAccount === "string" ? JSON.parse(rawAccount) : rawAccount;
+
+    if (serviceAccount.private_key) {
+      serviceAccount.private_key = serviceAccount.private_key.replace(
+        /\\n/g,
+        "\n",
+      );
+    }
+  } else {
+    // Ambiente Local (VS Code)
+    serviceAccount = require("./serviceAccountKey.json");
+  }
+} catch (error) {
+  console.error("Erro crítico nas credenciais do Firebase:", error.message);
+  process.exit(1);
 }
-
-const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-
-serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, "\n");
 
 if (getApps().length === 0) {
   initializeApp({
@@ -25,19 +41,16 @@ if (getApps().length === 0) {
 }
 
 const db = getFirestore();
-
 const COLECAO = "eleicoes";
 const DOCUMENTO = "paraiba2026";
-
 const referencia = db.collection(COLECAO).doc(DOCUMENTO);
 
 // ======================================
-// CONFIGURAÇÕES
+// MIDDLEWARES
 // ======================================
 
 app.use(cors());
 app.use(express.json());
-
 app.use(express.static("public"));
 
 // ======================================
@@ -47,70 +60,36 @@ app.use(express.static("public"));
 function criarVotosIniciais() {
   return {
     totalEleitores: 0,
-
     votos: {
       deputadoFederal: {
         brancos: 0,
         nulos: 0,
-        candidatos: {
-          6849: 0,
-          7358: 0,
-          8173: 0,
-          9264: 0,
-        },
+        candidatos: { 6849: 0, 7358: 0, 8173: 0, 9264: 0 },
       },
-
       deputadoEstadual: {
         brancos: 0,
         nulos: 0,
-        candidatos: {
-          58127: 0,
-          69438: 0,
-          82751: 0,
-          93642: 0,
-        },
+        candidatos: { 58127: 0, 69438: 0, 82751: 0, 93642: 0 },
       },
-
       senador1: {
         brancos: 0,
         nulos: 0,
-        candidatos: {
-          581: 0,
-          694: 0,
-          827: 0,
-          936: 0,
-        },
+        candidatos: { 581: 0, 694: 0, 827: 0, 936: 0 },
       },
-
       senador2: {
         brancos: 0,
         nulos: 0,
-        candidatos: {
-          581: 0,
-          694: 0,
-          827: 0,
-          936: 0,
-        },
+        candidatos: { 581: 0, 694: 0, 827: 0, 936: 0 },
       },
-
       governador: {
         brancos: 0,
         nulos: 0,
-        candidatos: {
-          58: 0,
-          69: 0,
-          82: 0,
-          93: 0,
-        },
+        candidatos: { 51: 0, 82: 0, 88: 0, 93: 0 },
       },
-
       presidente: {
         brancos: 0,
         nulos: 0,
-        candidatos: {
-          58: 0,
-          69: 0,
-        },
+        candidatos: { 58: 0, 67: 0 },
       },
     },
   };
@@ -124,11 +103,10 @@ async function inicializarBanco() {
   const documento = await referencia.get();
 
   if (!documento.exists) {
-    await referencia.create(criarVotosIniciais());
-
-    console.log("Documento de votação criado no Firestore.");
+    await referencia.set(criarVotosIniciais());
+    console.log("Documento 'paraiba2026' criado com sucesso no Firestore.");
   } else {
-    console.log("Resultados existentes encontrados.");
+    console.log("Banco de dados do Firestore conectado e pronto.");
   }
 }
 
@@ -141,9 +119,9 @@ app.post("/api/votar", async (req, res) => {
     const { votosEleitor } = req.body;
 
     if (!Array.isArray(votosEleitor)) {
-      return res.status(400).json({
-        error: "Dados inválidos.",
-      });
+      return res
+        .status(400)
+        .json({ error: "Dados da votação devem ser uma lista." });
     }
 
     const cargosPermitidos = [
@@ -155,7 +133,6 @@ app.post("/api/votar", async (req, res) => {
       "presidente",
     ];
 
-    // Verifica se todos os cargos foram enviados
     if (
       votosEleitor.length !== cargosPermitidos.length ||
       new Set(votosEleitor.map((v) => v.cargoTipo)).size !==
@@ -163,43 +140,47 @@ app.post("/api/votar", async (req, res) => {
       !votosEleitor.every((v) => cargosPermitidos.includes(v.cargoTipo))
     ) {
       return res.status(400).json({
-        error: "Estrutura da votação inválida.",
+        error: "Estrutura da votação incompatível ou com cargos duplicados.",
       });
     }
 
     await db.runTransaction(async (transaction) => {
       const documento = await transaction.get(referencia);
 
+      let dados;
       if (!documento.exists) {
-        throw new Error("Documento de votação não encontrado.");
+        dados = criarVotosIniciais();
+      } else {
+        dados = documento.data();
       }
 
-      const dados = documento.data();
-
-      dados.totalEleitores++;
+      dados.totalEleitores = (dados.totalEleitores || 0) + 1;
 
       for (const voto of votosEleitor) {
         const { cargoTipo, tipo, numero } = voto;
-
         const cargoData = dados.votos[cargoTipo];
 
         if (!cargoData) {
-          throw new Error("Cargo inválido.");
+          throw new Error(`Cargo '${cargoTipo}' não existe no Firestore.`);
         }
 
         if (tipo === "BRANCO") {
-          cargoData.brancos++;
+          cargoData.brancos = (cargoData.brancos || 0) + 1;
         } else if (tipo === "NULO") {
-          cargoData.nulos++;
+          cargoData.nulos = (cargoData.nulos || 0) + 1;
         } else if (tipo === "VÁLIDO") {
-          if (
-            typeof numero !== "string" ||
-            !Object.prototype.hasOwnProperty.call(cargoData.candidatos, numero)
-          ) {
-            throw new Error("Número de candidato inválido.");
+          const numString = String(numero);
+
+          if (!cargoData.candidatos) {
+            cargoData.candidatos = {};
           }
 
-          cargoData.candidatos[numero]++;
+          // Se o número do candidato ainda não existia no mapa do banco, inicializa com 1
+          if (cargoData.candidatos[numString] === undefined) {
+            cargoData.candidatos[numString] = 1;
+          } else {
+            cargoData.candidatos[numString]++;
+          }
         } else {
           throw new Error("Tipo de voto inválido.");
         }
@@ -210,13 +191,14 @@ app.post("/api/votar", async (req, res) => {
 
     return res.json({
       status: "sucesso",
-      message: "Votação registrada no Firestore!",
+      message: "Voto computado com sucesso no Firestore!",
     });
   } catch (erro) {
-    console.error("Erro ao registrar votação:", erro);
+    console.error("Erro ao processar /api/votar:", erro.message);
 
     return res.status(500).json({
-      error: "Não foi possível registrar a votação.",
+      error: "Falha ao gravar no Firestore.",
+      detalhe: erro.message,
     });
   }
 });
@@ -230,34 +212,30 @@ app.get("/api/apuracao", async (req, res) => {
     const documento = await referencia.get();
 
     if (!documento.exists) {
-      return res.status(404).json({
-        error: "Resultados não encontrados.",
-      });
+      return res.status(404).json({ error: "Resultados não encontrados." });
     }
 
     return res.json(documento.data());
   } catch (erro) {
-    console.error("Erro ao consultar apuração:", erro);
-
-    return res.status(500).json({
-      error: "Não foi possível consultar os resultados.",
-    });
+    console.error("Erro ao consultar /api/apuracao:", erro);
+    return res
+      .status(500)
+      .json({ error: "Não foi possível consultar os resultados." });
   }
 });
 
 // ======================================
-// INICIALIZAÇÃO DO SERVIDOR
+// INICIALIZAÇÃO
 // ======================================
 
 async function iniciarServidor() {
   try {
     await inicializarBanco();
-
     app.listen(PORT, () => {
-      console.log(`Servidor rodando na porta ${PORT}`);
+      console.log(`Servidor rodando perfeitamente na porta ${PORT}`);
     });
   } catch (erro) {
-    console.error("Falha ao iniciar:", erro);
+    console.error("Falha fatal ao iniciar o servidor:", erro);
     process.exit(1);
   }
 }
