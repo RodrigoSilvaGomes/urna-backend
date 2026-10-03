@@ -983,6 +983,28 @@
           };
         }
 
+        // =========================================================================
+        // VALIDAÇÃO: IMPEDE REPETIR O MESMO CANDIDATO PARA A 2ª VAGA DE SENADOR
+        // =========================================================================
+        if (cargo.tipo === "senador2" && registro.tipo === "VÁLIDO") {
+          const votoSenador1 = votosEleitorAtual.find(
+            (v) => v.cargoTipo === "senador1",
+          );
+
+          if (
+            votoSenador1 &&
+            votoSenador1.tipo === "VÁLIDO" &&
+            String(registro.numero) === String(votoSenador1.numero)
+          ) {
+            message.textContent =
+              "Você já votou neste candidato para o 1º Senador.";
+            message.className = "message invalid";
+            message.style.fontSize = "28px";
+            return; // Interrompe a função e não confirma o voto duplicado
+          }
+        }
+        // =========================================================================
+
         votosEleitorAtual.push(registro);
 
         playTok();
@@ -1151,6 +1173,7 @@
           return;
         }
         if (event.key === "Enter") {
+          event.preventDefault();
           confirmVote();
           return;
         }
